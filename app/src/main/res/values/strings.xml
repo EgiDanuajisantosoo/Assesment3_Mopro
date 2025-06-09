@@ -1,3 +1,17 @@
 <resources>
-    <string name="app_name">Assessment3_mopro</string>
+    <string name="app_name">WisataKita</string>
+    <string name="gambar">Gambar %1$s</string>
+    <string name="error">Gagal memuat data.. Koneksi error.</string>
+    <string name="try_again">Coba lagi</string>
+    <string name="profil">Profil</string>
+    <string name="tutup">Tutup</string>
+    <string name="logout">Logout</string>
+    <string name="tambah_gallery">Tambah Gallery</string>
+    <string name="lokasi">Lokasi</string>
+    <string name="deskripsi">Deskripsi</string>
+    <string name="tanggal">Tanggal</string>
+    <string name="batal">Batal</string>
+    <string name="simpan">Simpan</string>
+    <string name="gambar_terpilih">Gambar terpilih</string>
+    <string name="simpan_perubahan">Perbarui</string>
 </resources>
