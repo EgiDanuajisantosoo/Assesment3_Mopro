@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mobpro1"
+    namespace = "com.egidanuajisantoso.assessment3_mopro"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.mobpro1"
+        applicationId = "com.egidanuajisantoso.assessment3_mopro"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
