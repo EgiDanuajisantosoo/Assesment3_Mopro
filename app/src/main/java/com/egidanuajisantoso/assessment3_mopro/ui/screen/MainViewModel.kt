@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.egidanuajisantoso.assessment3_mopro.model.Gallery
 import com.egidanuajisantoso.assessment3_mopro.network.GalleryApi
+import com.egidanuajisantoso.assessment3_mopro.network.GalleryApi.ApiStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -17,7 +18,7 @@ import java.io.ByteArrayOutputStream
 
 class MainViewModel : ViewModel() {
     var data = mutableStateOf(emptyList<Gallery>())
-    private set
+        private set
 
     var status = MutableStateFlow(GalleryApi.ApiStatus.LOADING)
         private set
@@ -26,23 +27,35 @@ class MainViewModel : ViewModel() {
         private set
 
 
+
     fun retrieveData(userId: String) {
-        Log.d("MainViewModel", "Retrieving data for user: $userId")
+        Log.d("MainViewModel", "Refreshing all gallery data. Triggered by UserID: '$userId'")
         viewModelScope.launch(Dispatchers.IO) {
-            status.value = GalleryApi.ApiStatus.LOADING
+            status.value = ApiStatus.LOADING
             try {
-                data.value = GalleryApi.service.getGallery(userId)
-                status.value = GalleryApi.ApiStatus.SUCCESS
+                val response = GalleryApi.service.getAllGallery()
+
+                if (response.status == "success") {
+                    data.value = response.data ?: emptyList() // Lebih aman jika data bisa null
+                    status.value = ApiStatus.SUCCESS
+
+                } else {
+                    throw Exception(response.message ?: "Pesan error tidak tersedia dari API")
+                }
             } catch (e: Exception) {
-                Log.d("MainViewModel", "Failure: ${e.message}")
-                status.value = GalleryApi.ApiStatus.FAILED
+                val errorMsg = "Gagal memuat data: ${e.message}"
+                Log.e("MainViewModel", errorMsg, e)
+                errorMessage.value = errorMsg
+                status.value = ApiStatus.FAILED
             }
         }
     }
 
-    fun saveData(userId: String, lokasi: String, deskripsi: String,tanggal: String, bitmap: Bitmap) {
+
+    fun saveData(userId: String, lokasi: String, deskripsi: String, tanggal: String, bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Panggilan API kini menggunakan MessageResponse dan tidak akan crash
                 val result = GalleryApi.service.postGallery(
                     userId,
                     lokasi.toRequestBody("text/plain".toMediaTypeOrNull()),
@@ -51,24 +64,81 @@ class MainViewModel : ViewModel() {
                     bitmap.toMultipartBody()
                 )
 
-                if (result.status == "success")
-                    retrieveData(userId)
-                else throw
-                Exception(result.message)
+                if (result.status == "success") {
+                    Log.d("MainViewModel", "Sukses menyimpan: ${result.data}")
+                    retrieveData(userId) // Muat ulang semua data
+                } else {
+                    // Jika status dari server 'error', lempar pesan errornya
+                    throw Exception(result.message ?: result.data)
+                }
             } catch (e: Exception) {
-                Log.d("MainViewModel", "Failure: ${e.message}")
-                errorMessage.value = "Error: ${e.message}"
+                val errorMsg = "Gagal menyimpan data: ${e.message}"
+                Log.e("MainViewModel", errorMsg, e)
+                errorMessage.value = errorMsg
             }
         }
     }
 
-    private fun Bitmap.toMultipartBody(): MultipartBody.Part{
+    fun updateData(id: String, userId: String, lokasi: String, deskripsi: String, tanggal: String, bitmap: Bitmap) {
+        Log.d("MainViewModel", "Updating data with ID: '$id' and UserID: '$userId' and Bitmap: '$bitmap' and Lokasi: '$lokasi' and Deskripsi: '$deskripsi' and Tanggal: '$tanggal'")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = GalleryApi.service.updateGallery(
+                    id,
+                    lokasi.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    deskripsi.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    tanggal.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    bitmap.toMultipartBody()
+                )
+
+                if (result.status == "success") {
+                    retrieveData(userId)
+                } else {
+                    val errorMsg = "Gagal memperbarui data: ${result.message}"
+                    Log.e("MainViewModel", errorMsg)
+                    errorMessage.value = errorMsg
+                }
+            } catch (e: Exception) {
+                val errorMsg = "Error saat memperbarui: ${e.message}"
+                Log.e("MainViewModel", errorMsg, e)
+                errorMessage.value = errorMsg
+            }
+        }
+    }
+
+    fun deleteData(id: String, userId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = GalleryApi.service.deleteGallery(id)
+
+                if (result.status == "success") {
+                    retrieveData(userId)
+                } else {
+                    val errorMsg = "Gagal menghapus data: ${result.message}"
+                    Log.e("MainViewModel", errorMsg)
+                    errorMessage.value = errorMsg
+                }
+            } catch (e: Exception) {
+                val errorMsg = "Error saat menghapus: ${e.message}"
+                Log.e("MainViewModel", errorMsg, e)
+                errorMessage.value = errorMsg
+            }
+        }
+    }
+
+    private fun Bitmap.toMultipartBody(): MultipartBody.Part {
         val stream = ByteArrayOutputStream()
         compress(Bitmap.CompressFormat.JPEG, 80, stream)
         val byteArray = stream.toByteArray()
-        val requestBody = byteArray.toRequestBody("image/jpeg".toMediaTypeOrNull(),0, byteArray.size)
+        val requestBody = byteArray.toRequestBody(
+            "image/jpeg".toMediaTypeOrNull(),
+            0,
+            byteArray.size
+        )
         return MultipartBody.Part.createFormData("gambar", "image.jpg", requestBody)
     }
 
-    fun clearMessage(){ errorMessage.value = null}
+    fun clearMessage() {
+        errorMessage.value = null
+    }
 }

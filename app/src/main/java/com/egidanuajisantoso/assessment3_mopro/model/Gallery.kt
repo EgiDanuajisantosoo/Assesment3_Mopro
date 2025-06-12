@@ -5,5 +5,6 @@ class Gallery(
     val lokasi: String,
     val deskripsi: String,
     val tanggal: String,
-    val gambar: String
+    val gambar: String,
+    val Authorization: String?
 )

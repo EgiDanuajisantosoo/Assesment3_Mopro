@@ -1,33 +1,30 @@
 package com.egidanuajisantoso.assessment3_mopro.ui.screen
 
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.egidanuajisantoso.assessment3_mopro.model.User
-import com.egidanuajisantoso.assessment3_mopro.network.UserDataStore
 import android.content.ContentResolver
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -38,18 +35,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -64,8 +65,11 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
@@ -73,8 +77,10 @@ import com.canhub.cropper.CropImageView
 import com.egidanuajisantoso.assessment3_mopro.BuildConfig
 import com.egidanuajisantoso.assessment3_mopro.R
 import com.egidanuajisantoso.assessment3_mopro.model.Gallery
+import com.egidanuajisantoso.assessment3_mopro.model.User
 import com.egidanuajisantoso.assessment3_mopro.network.GalleryApi
 import com.egidanuajisantoso.assessment3_mopro.network.GalleryApi.ApiStatus
+import com.egidanuajisantoso.assessment3_mopro.network.UserDataStore
 import com.egidanuajisantoso.assessment3_mopro.ui.theme.Assessment3_moproTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -96,6 +102,11 @@ fun MainScreen(){
     var showDialog by remember { mutableStateOf(false) }
     var showHewanDialog by remember { mutableStateOf(false) }
 
+    // State diangkat dan tetap di MainScreen untuk edit
+    var itemToEdit by remember { mutableStateOf<Gallery?>(null) }
+    var bitmapToEdit by remember { mutableStateOf<Bitmap?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()){
         bitmap = getCroppedImage(context.contentResolver, it)
@@ -104,12 +115,19 @@ fun MainScreen(){
         }
     }
 
+    // Effect untuk memuat gambar dari URL ke bitmap saat itemToEdit berubah
+    LaunchedEffect(itemToEdit) {
+        itemToEdit?.let { gallery ->
+            coroutineScope.launch(Dispatchers.IO) {
+                bitmapToEdit = loadBitmapFromUrl(context, GalleryApi.getGalleryUrl(gallery.gambar))
+            }
+        }
+    }
+
     Scaffold (
         topBar = {
             TopAppBar(
-                title = {
-                    Text(text = stringResource(id = R.string.app_name))
-                },
+                title = { Text(text = stringResource(id = R.string.app_name)) },
                 colors = TopAppBarDefaults.mediumTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary,
@@ -118,7 +136,7 @@ fun MainScreen(){
                     IconButton(onClick = {
                         if (user.email.isEmpty()){
                             CoroutineScope(Dispatchers.IO).launch { signIn(context , dataStore) }
-                        }else{
+                        } else {
                             showDialog = true
                         }
                     }) {
@@ -132,32 +150,35 @@ fun MainScreen(){
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                val options = CropImageContractOptions(
-                    null, CropImageOptions(
-                        imageSourceIncludeGallery = false,
-                        imageSourceIncludeCamera = true,
-                        fixAspectRatio = true,
+            if (user.email.isNotEmpty()) {
+                FloatingActionButton(onClick = {
+                    val options = CropImageContractOptions(
+                        null, CropImageOptions(
+                            imageSourceIncludeGallery = false,
+                            imageSourceIncludeCamera = true,
+                            fixAspectRatio = true,
+                        )
                     )
-                )
-                launcher.launch(options)
-            }){
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.tambah_gallery)
-                )
+                    launcher.launch(options)
+                }){
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(id = R.string.tambah_gallery)
+                    )
+                }
             }
         }
     ){ padding ->
-        ScreenContent(viewModel, user.email ,Modifier.padding(padding))
-        if (showDialog){
-            ProfilDialog(
-                user = user,
-                onDismissRequest = { showDialog = false }){
-                CoroutineScope(Dispatchers.IO).launch { signOut(context , dataStore) }
-                showDialog = false
+        ScreenContent(
+            viewModel = viewModel,
+            userId = user.email,
+            modifier = Modifier.padding(padding),
+            onEditClick = { gallery ->
+                if (user.email.isNotEmpty()) {
+                    itemToEdit = gallery
+                }
             }
-        }
+        )
 
         if (showHewanDialog){
             GalleryDialog(
@@ -168,17 +189,61 @@ fun MainScreen(){
             }
         }
 
+        // Dialog untuk menampilkan profil
+        if (showDialog){
+            ProfilDialog(
+                user = user,
+                onDismissRequest = { showDialog = false }){
+                CoroutineScope(Dispatchers.IO).launch { signOut(context , dataStore) }
+                showDialog = false
+            }
+        }
+
+        // Dialog untuk mengedit atau menghapus data
+        if (itemToEdit != null && bitmapToEdit != null) {
+            GalleryDialogEdit(
+                initialBitmap = bitmapToEdit!!,
+                initialLokasi = itemToEdit!!.lokasi,
+                initialDeskripsi = itemToEdit!!.deskripsi,
+                initialTanggal = itemToEdit!!.tanggal,
+                onDismissRequest = {
+                    itemToEdit = null
+                    bitmapToEdit = null
+                },
+                onConfirmation = { newLokasi, newDeskripsi, newTanggal, newBitmap ->
+                    viewModel.updateData(
+                        id = itemToEdit!!.id,
+                        userId = user.email,
+                        lokasi = newLokasi,
+                        deskripsi = newDeskripsi,
+                        tanggal = newTanggal,
+                        bitmap = newBitmap
+                    )
+                    itemToEdit = null
+                    bitmapToEdit = null
+                },
+                onDeleteConfirmation = {
+                    viewModel.deleteData(itemToEdit!!.id, user.email)
+                    itemToEdit = null
+                    bitmapToEdit = null
+                }
+            )
+        }
+
         if (errorMessage != null){
             Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
         }
-
     }
-
 }
 
 @Composable
-fun ScreenContent(viewModel: MainViewModel,userId: String,modifier: Modifier) {
+fun ScreenContent(
+    viewModel: MainViewModel,
+    userId: String,
+    modifier: Modifier,
+    onEditClick: (Gallery) -> Unit
+) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -198,11 +263,26 @@ fun ScreenContent(viewModel: MainViewModel,userId: String,modifier: Modifier) {
 
         ApiStatus.SUCCESS -> {
             LazyVerticalGrid(
-                modifier = modifier.fillMaxSize().padding(4.dp),
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ){
-                items(data){ListItem(gallery = it)}
+                items(data) { galleryItem ->
+                    if (galleryItem.Authorization == userId){
+                        ListItem(
+                            gallery = galleryItem,
+                            onItemClick = onEditClick
+                        )
+                    }else{
+                        ListItem(
+                            gallery = galleryItem,
+                            onItemClick = {  }
+                        )
+                    }
+
+                }
             }
         }
 
@@ -226,23 +306,36 @@ fun ScreenContent(viewModel: MainViewModel,userId: String,modifier: Modifier) {
 }
 
 @Composable
-fun ListItem(gallery: Gallery){
-    Log.d("ListItem", "Gallery: $gallery")
+fun ListItem(
+    gallery: Gallery,
+    onItemClick: (Gallery) -> Unit
+){
+//    Log.d("ListItem", "Email: ${gallery.Authorization}")
     Box(
-        modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray),
+        modifier = Modifier
+            .padding(4.dp)
+            .border(1.dp, Color.Gray)
+            .clickable { onItemClick(gallery) },
         contentAlignment = Alignment.BottomCenter
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current).data(GalleryApi.getGalleryUrl(gallery.gambar)
-            ).crossfade(true).build(),
-            contentDescription = stringResource(R.string.gambar),
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(GalleryApi.getGalleryUrl(gallery.gambar))
+                .crossfade(true)
+                .build(),
+            contentDescription = stringResource(id = R.string.gambar),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
             error = painterResource(id = R.drawable.baseline_broken_image_24),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
         )
         Column (
-            modifier = Modifier.fillMaxWidth().background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f)).padding(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
+                .padding(4.dp)
         ) {
             Text(text = gallery.lokasi,
                 fontWeight = FontWeight.Bold,
@@ -336,7 +429,20 @@ private fun getCroppedImage(
     }
 }
 
-
+private suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
+    val loader = ImageLoader(context)
+    val request = ImageRequest.Builder(context)
+        .data(url)
+        .allowHardware(false)
+        .build()
+    return try {
+        val result = (loader.execute(request) as SuccessResult).drawable
+        (result as BitmapDrawable).bitmap
+    } catch (e: Exception) {
+        Log.e("LoadBitmap", "Failed to load bitmap from URL: $url", e)
+        null
+    }
+}
 
 @Preview(showBackground = true)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
