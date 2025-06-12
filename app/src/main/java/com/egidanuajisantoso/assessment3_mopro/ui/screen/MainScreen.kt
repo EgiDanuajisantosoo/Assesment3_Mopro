@@ -108,6 +108,11 @@ fun MainScreen(){
     val coroutineScope = rememberCoroutineScope()
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
+
+    var isDatasetLinked by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var dataSet = 0
+
     val launcher = rememberLauncherForActivityResult(CropImageContract()){
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null){
@@ -124,7 +129,7 @@ fun MainScreen(){
         }
     }
 
-    Scaffold (
+    Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(id = R.string.app_name)) },
@@ -133,9 +138,35 @@ fun MainScreen(){
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 actions = {
+                    // --- PERBAIKAN DI SINI ---
+
+                    // Tombol Aksi 1: Untuk toggle ikon dataset
                     IconButton(onClick = {
-                        if (user.email.isEmpty()){
-                            CoroutineScope(Dispatchers.IO).launch { signIn(context , dataStore) }
+                        // Ubah nilai state Boolean. Compose akan otomatis update UI.
+                        isDatasetLinked = !isDatasetLinked
+                    }) {
+                        if (isDatasetLinked) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_dataset_linked_24),
+                                contentDescription = "Dataset Terhubung",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_dataset_24),
+                                contentDescription = "Dataset Tidak Terhubung",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    // Tombol Aksi 2: Untuk Login atau menampilkan profil
+                    IconButton(onClick = {
+                        if (user.email.isEmpty()) {
+                            // Gunakan scope yang lifecycle-aware
+                            scope.launch {
+                                signIn(context, dataStore)
+                            }
                         } else {
                             showDialog = true
                         }
@@ -148,25 +179,6 @@ fun MainScreen(){
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (user.email.isNotEmpty()) {
-                FloatingActionButton(onClick = {
-                    val options = CropImageContractOptions(
-                        null, CropImageOptions(
-                            imageSourceIncludeGallery = false,
-                            imageSourceIncludeCamera = true,
-                            fixAspectRatio = true,
-                        )
-                    )
-                    launcher.launch(options)
-                }){
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(id = R.string.tambah_gallery)
-                    )
-                }
-            }
         }
     ){ padding ->
         ScreenContent(
@@ -235,6 +247,8 @@ fun MainScreen(){
             viewModel.clearMessage()
         }
     }
+
+
 }
 
 @Composable
@@ -272,13 +286,15 @@ fun ScreenContent(
                 items(data) { galleryItem ->
                     if (galleryItem.Authorization == userId){
                         ListItem(
+                            user = userId,
                             gallery = galleryItem,
                             onItemClick = onEditClick
                         )
                     }else{
                         ListItem(
                             gallery = galleryItem,
-                            onItemClick = {  }
+                            onItemClick = { },
+                            user = userId
                         )
                     }
 
@@ -307,6 +323,7 @@ fun ScreenContent(
 
 @Composable
 fun ListItem(
+    user : String,
     gallery: Gallery,
     onItemClick: (Gallery) -> Unit
 ){
@@ -331,30 +348,44 @@ fun ListItem(
                 .fillMaxWidth()
                 .aspectRatio(1f)
         )
-        Column (
+        Box( // <-- 1. Bungkus semuanya dengan Box
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
                 .padding(4.dp)
         ) {
-            Text(text = gallery.lokasi,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            // Column ini sekarang hanya berisi elemen teks
+            Column {
+                Text(
+                    text = gallery.lokasi,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
 
-            Text(
-                text = gallery.deskripsi,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                color = Color.White
-            )
+                Text(
+                    text = gallery.deskripsi,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
 
-            Text(
-                text = gallery.tanggal,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                color = Color.White
-            )
+                Text(
+                    text = gallery.tanggal,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
+            }
+
+            // <-- 2. Letakkan Icon sebagai anak langsung dari Box, di luar Column
+            if (gallery.Authorization == user) {
+                Icon(
+                    painter = painterResource(id = R.drawable.baseline_edit_document_24),
+                    contentDescription = "Edit", // Sebaiknya berikan deskripsi yang jelas
+                    tint = Color.White,
+                    modifier = Modifier.align(Alignment.BottomEnd) // <-- 3. Ini kuncinya!
+                )
+            }
         }
     }
 }
@@ -443,6 +474,8 @@ private suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
         null
     }
 }
+
+
 
 @Preview(showBackground = true)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)

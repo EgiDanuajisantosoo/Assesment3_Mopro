@@ -36,7 +36,30 @@ class MainViewModel : ViewModel() {
                 val response = GalleryApi.service.getAllGallery()
 
                 if (response.status == "success") {
-                    data.value = response.data ?: emptyList() // Lebih aman jika data bisa null
+                    data.value = response.data ?: emptyList()
+                    status.value = ApiStatus.SUCCESS
+
+                } else {
+                    throw Exception(response.message ?: "Pesan error tidak tersedia dari API")
+                }
+            } catch (e: Exception) {
+                val errorMsg = "Gagal memuat data: ${e.message}"
+                Log.e("MainViewModel", errorMsg, e)
+                errorMessage.value = errorMsg
+                status.value = ApiStatus.FAILED
+            }
+        }
+    }
+
+    fun retrieveDataUser(userId: String) {
+        Log.d("MainViewModel", "Refreshing all gallery data. Triggered by UserID: '$userId'")
+        viewModelScope.launch(Dispatchers.IO) {
+            status.value = ApiStatus.LOADING
+            try {
+                val response = GalleryApi.service.getGallery(userId)
+
+                if (response.status == "success") {
+                    data.value = response.data ?: emptyList()
                     status.value = ApiStatus.SUCCESS
 
                 } else {
