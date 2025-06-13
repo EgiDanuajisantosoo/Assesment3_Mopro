@@ -102,7 +102,6 @@ fun MainScreen(){
     var showDialog by remember { mutableStateOf(false) }
     var showHewanDialog by remember { mutableStateOf(false) }
 
-    // State diangkat dan tetap di MainScreen untuk edit
     var itemToEdit by remember { mutableStateOf<Gallery?>(null) }
     var bitmapToEdit by remember { mutableStateOf<Bitmap?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -120,7 +119,7 @@ fun MainScreen(){
         }
     }
 
-    // Effect untuk memuat gambar dari URL ke bitmap saat itemToEdit berubah
+
     LaunchedEffect(itemToEdit) {
         itemToEdit?.let { gallery ->
             coroutineScope.launch(Dispatchers.IO) {
@@ -138,32 +137,36 @@ fun MainScreen(){
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 actions = {
-                    // --- PERBAIKAN DI SINI ---
+                    if (user.email.isNotEmpty()){
+                        IconButton(onClick = {
+                            isDatasetLinked = !isDatasetLinked
 
-                    // Tombol Aksi 1: Untuk toggle ikon dataset
-                    IconButton(onClick = {
-                        // Ubah nilai state Boolean. Compose akan otomatis update UI.
-                        isDatasetLinked = !isDatasetLinked
-                    }) {
-                        if (isDatasetLinked) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_dataset_linked_24),
-                                contentDescription = "Dataset Terhubung",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_dataset_24),
-                                contentDescription = "Dataset Tidak Terhubung",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            if (isDatasetLinked) {
+                                viewModel.retrieveDataUser(user.email)
+                            }else{
+                                viewModel.retrieveData(user.email)
+
+                            }
+                        }) {
+                            if (isDatasetLinked) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_dataset_linked_24),
+                                    contentDescription = "Dataset Terhubung",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_dataset_24),
+                                    contentDescription = "Dataset Tidak Terhubung",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
 
-                    // Tombol Aksi 2: Untuk Login atau menampilkan profil
+
                     IconButton(onClick = {
                         if (user.email.isEmpty()) {
-                            // Gunakan scope yang lifecycle-aware
                             scope.launch {
                                 signIn(context, dataStore)
                             }
@@ -179,7 +182,29 @@ fun MainScreen(){
                     }
                 }
             )
+        },
+
+        floatingActionButton = {
+            if (user.email.isNotEmpty()){
+                FloatingActionButton(onClick = {
+                    val options = CropImageContractOptions(
+                        null, CropImageOptions(
+                            imageSourceIncludeGallery = true,
+                            imageSourceIncludeCamera = true,
+                            fixAspectRatio = true,
+                        )
+                    )
+                    launcher.launch(options)
+                }){
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(id = R.string.tambah_gallery)
+                    )
+                }
+            }
+
         }
+
     ){ padding ->
         ScreenContent(
             viewModel = viewModel,
@@ -201,7 +226,6 @@ fun MainScreen(){
             }
         }
 
-        // Dialog untuk menampilkan profil
         if (showDialog){
             ProfilDialog(
                 user = user,
@@ -348,7 +372,7 @@ fun ListItem(
                 .fillMaxWidth()
                 .aspectRatio(1f)
         )
-        Box( // <-- 1. Bungkus semuanya dengan Box
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
@@ -377,13 +401,12 @@ fun ListItem(
                 )
             }
 
-            // <-- 2. Letakkan Icon sebagai anak langsung dari Box, di luar Column
             if (gallery.Authorization == user) {
                 Icon(
                     painter = painterResource(id = R.drawable.baseline_edit_document_24),
-                    contentDescription = "Edit", // Sebaiknya berikan deskripsi yang jelas
+                    contentDescription = "Edit",
                     tint = Color.White,
-                    modifier = Modifier.align(Alignment.BottomEnd) // <-- 3. Ini kuncinya!
+                    modifier = Modifier.align(Alignment.BottomEnd)
                 )
             }
         }

@@ -1,6 +1,5 @@
 package com.egidanuajisantoso.assessment3_mopro.network
 
-import com.egidanuajisantoso.assessment3_mopro.model.Gallery
 import com.egidanuajisantoso.assessment3_mopro.model.MessageResponse
 import com.egidanuajisantoso.assessment3_mopro.model.OpStatus
 import com.squareup.moshi.Moshi
@@ -17,7 +16,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 
-private const val BASE_URL = "https://0d58-36-69-194-228.ngrok-free.app/api/"
+private const val BASE_URL = "https://ac96-36-69-194-228.ngrok-free.app/api/"
 
 
 private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()

@@ -40,7 +40,7 @@ class MainViewModel : ViewModel() {
                     status.value = ApiStatus.SUCCESS
 
                 } else {
-                    throw Exception(response.message ?: "Pesan error tidak tersedia dari API")
+                    throw Exception(response.message)
                 }
             } catch (e: Exception) {
                 val errorMsg = "Gagal memuat data: ${e.message}"
@@ -50,6 +50,7 @@ class MainViewModel : ViewModel() {
             }
         }
     }
+
 
     fun retrieveDataUser(userId: String) {
         Log.d("MainViewModel", "Refreshing all gallery data. Triggered by UserID: '$userId'")
@@ -63,7 +64,7 @@ class MainViewModel : ViewModel() {
                     status.value = ApiStatus.SUCCESS
 
                 } else {
-                    throw Exception(response.message ?: "Pesan error tidak tersedia dari API")
+                    throw Exception(response.message)
                 }
             } catch (e: Exception) {
                 val errorMsg = "Gagal memuat data: ${e.message}"
